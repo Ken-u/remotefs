@@ -23,6 +23,14 @@
       "created_by": "agent"
     }
   ],
+  "remotefs/cache.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:24:45.149320324Z",
+      "updated_at": "2026-05-15T16:24:45.149320324Z",
+      "created_by": "agent"
+    }
+  ],
   "remotefs/cli.py": [
     {
       "source_session": "1778861428-3c3efc5b4285",
@@ -36,6 +44,14 @@
       "source_session": "1778861428-3c3efc5b4285",
       "created_at": "2026-05-15T16:13:47.43242922Z",
       "updated_at": "2026-05-15T16:13:47.43242922Z",
+      "created_by": "agent"
+    }
+  ],
+  "remotefs/fuse_handler.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:28:09.37452034Z",
+      "updated_at": "2026-05-15T16:35:43.929817482Z",
       "created_by": "agent"
     }
   ],
@@ -55,11 +71,35 @@
       "created_by": "agent"
     }
   ],
+  "tests/conftest.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:29:44.748829896Z",
+      "updated_at": "2026-05-15T16:30:19.987509491Z",
+      "created_by": "agent"
+    }
+  ],
+  "tests/test_cache.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:24:45.219287433Z",
+      "updated_at": "2026-05-15T16:24:45.219287433Z",
+      "created_by": "agent"
+    }
+  ],
   "tests/test_config.py": [
     {
       "source_session": "1778861428-3c3efc5b4285",
       "created_at": "2026-05-15T16:14:09.525759664Z",
       "updated_at": "2026-05-15T16:18:32.428777068Z",
+      "created_by": "agent"
+    }
+  ],
+  "tests/test_fuse_handler.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:28:23.114431983Z",
+      "updated_at": "2026-05-15T16:38:06.323527276Z",
       "created_by": "agent"
     }
   ],

@@ -1,10 +1,10 @@
 """Tests for RemoteFS FUSE handler."""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, PropertyMock
 
 from remotefs.fuse_handler import RemoteFS
-from remotefs.remote_client import RemoteClient
+from remotefs.remote_client import RemoteClient, RemoteError
 from remotefs.cache import MetadataCache
 
 
@@ -13,10 +13,7 @@ def mock_client():
     """Create mock remote client."""
     client = Mock(spec=RemoteClient)
     client.exists.return_value = True
-    client.list_dir.return_value = [
-        {"name": "file1.txt", "type": "file"},
-        {"name": "subdir", "type": "dir"},
-    ]
+    client.list_dir.side_effect = RemoteError("Not a directory")
     client.read_file.return_value = b"file content"
     return client
 
@@ -40,16 +37,30 @@ def test_getattr_file(fs, mock_client):
     assert attr["st_nlink"] == 1
 
 
-def test_getattr_dir(fs, mock_client):
+def test_getattr_dir(cache):
     """Test getting directory attributes."""
-    mock_client.exists.return_value = False
-    attr = fs.getattr("/test")
+    # Create a separate mock for directory that returns list_dir successfully
+    dir_client = Mock(spec=RemoteClient)
+    dir_client.list_dir.return_value = [
+        {"name": "file1.txt", "type": "file"},
+        {"name": "subdir", "type": "dir"},
+    ]
+    dir_fs = RemoteFS(client=dir_client, cache=cache, root="/")
+
+    attr = dir_fs.getattr("/test")
     assert "st_mode" in attr
     assert attr["st_nlink"] == 2
 
 
 def test_readdir(fs, mock_client):
     """Test listing directory."""
+    # For readdir, we need list_dir to succeed
+    mock_client.list_dir.side_effect = None
+    mock_client.list_dir.return_value = [
+        {"name": "file1.txt", "type": "file"},
+        {"name": "subdir", "type": "dir"},
+    ]
+
     entries = fs.readdir("/test")
     assert "." in entries
     assert ".." in entries

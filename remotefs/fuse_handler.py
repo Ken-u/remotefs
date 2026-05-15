@@ -32,17 +32,21 @@ class RemoteFS(FUSE):
         if path.startswith("/.local/bin"):
             return self._make_cmd_attr(path)
 
-        # Query remote
+        # Query remote - try to list as directory first, then check as file
+        # This avoids misclassifying directories as files
         try:
-            if self.client.exists(path):
-                # It's a file
-                attr = {"type": "file", "size": 0, "mode": 0o644}
-            else:
-                # Try as directory
-                self.client.list_dir(path)
-                attr = self._make_dir_attr()
+            remote_entries = self.client.list_dir(path)
+            # If list_dir succeeds, it's a directory
+            attr = self._make_dir_attr()
         except RemoteError:
-            raise FileNotFoundError(path)
+            # Not a directory, try as file
+            try:
+                if self.client.exists(path):
+                    attr = {"type": "file", "size": 0, "mode": 0o644}
+                else:
+                    raise FileNotFoundError(path)
+            except RemoteError:
+                raise FileNotFoundError(path)
 
         self.cache.set(f"attr:{path}", attr)
         return attr
@@ -109,15 +113,24 @@ class RemoteFS(FUSE):
         if cached:
             return cached[offset : offset + size]
 
-        content = self.client.read_file(path)
-        self.cache.set(f"content:{path}", content, ttl=1)  # Short TTL for content
-        return content[offset : offset + size]
+        try:
+            content = self.client.read_file(path)
+            self.cache.set(f"content:{path}", content, ttl=1)  # Short TTL for content
+            return content[offset : offset + size]
+        except RemoteError as e:
+            raise OSError(f"Failed to read file: {e}")
 
     def write(self, path: str, data: bytes, offset: int, fd: int) -> int:
-        """Write to a file."""
-        # For simplicity, write the whole file
-        # In production, you'd buffer and write at offset
-        self.client.write_file(path, data)
+        """Write to a file.
+
+        Note: This implementation ignores the offset parameter and writes the entire file.
+        This is a simplification for the initial version - in production, you'd buffer
+        and write at the specified offset.
+        """
+        try:
+            self.client.write_file(path, data)
+        except RemoteError as e:
+            raise OSError(f"Failed to write file: {e}")
 
         # Invalidate cache
         self.cache.delete(f"content:{path}")
@@ -128,7 +141,11 @@ class RemoteFS(FUSE):
 
     def create(self, path: str, mode: int) -> int:
         """Create a new file."""
-        self.client.write_file(path, b"")
+        try:
+            self.client.write_file(path, b"")
+        except RemoteError as e:
+            raise OSError(f"Failed to create file: {e}")
+
         self.cache.delete(f"attr:{path}")
         self.cache.delete_prefix(f"readdir:{os.path.dirname(path)}")
 
@@ -143,19 +160,31 @@ class RemoteFS(FUSE):
 
     def mkdir(self, path: str, mode: int) -> None:
         """Create a directory."""
-        self.client.create_dir(path)
+        try:
+            self.client.create_dir(path)
+        except RemoteError as e:
+            raise OSError(f"Failed to create directory: {e}")
+
         self.cache.delete(f"attr:{path}")
         self.cache.delete_prefix(f"readdir:{os.path.dirname(path)}")
 
     def rmdir(self, path: str) -> None:
         """Remove a directory."""
-        self.client.delete_dir(path)
+        try:
+            self.client.delete_dir(path)
+        except RemoteError as e:
+            raise OSError(f"Failed to remove directory: {e}")
+
         self.cache.delete(f"attr:{path}")
         self.cache.delete_prefix(f"readdir:{os.path.dirname(path)}")
 
     def unlink(self, path: str) -> None:
         """Delete a file."""
-        self.client.delete_file(path)
+        try:
+            self.client.delete_file(path)
+        except RemoteError as e:
+            raise OSError(f"Failed to delete file: {e}")
+
         self.cache.delete(f"content:{path}")
         self.cache.delete(f"attr:{path}")
         self.cache.delete_prefix(f"readdir:{os.path.dirname(path)}")
