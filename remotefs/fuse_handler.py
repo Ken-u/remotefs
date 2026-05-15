@@ -3,7 +3,7 @@
 import os
 import stat
 from typing import Dict, Any, List, Optional, Tuple
-from fusepy import FUSE  # type: ignore
+from fuse import FUSE  # type: ignore
 
 from .remote_client import RemoteClient, RemoteError
 from .cache import MetadataCache
