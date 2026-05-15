@@ -39,6 +39,14 @@
       "created_by": "agent"
     }
   ],
+  "remotefs/remote_client.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:20:47.962970251Z",
+      "updated_at": "2026-05-15T16:20:47.962970251Z",
+      "created_by": "agent"
+    }
+  ],
   "tests/__init__.py": [
     {
       "source_session": "1778861428-3c3efc5b4285",
@@ -52,6 +60,14 @@
       "source_session": "1778861428-3c3efc5b4285",
       "created_at": "2026-05-15T16:14:09.525759664Z",
       "updated_at": "2026-05-15T16:18:32.428777068Z",
+      "created_by": "agent"
+    }
+  ],
+  "tests/test_remote_client.py": [
+    {
+      "source_session": "1778861428-3c3efc5b4285",
+      "created_at": "2026-05-15T16:20:48.035386436Z",
+      "updated_at": "2026-05-15T16:21:08.553182942Z",
       "created_by": "agent"
     }
   ]
