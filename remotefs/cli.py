@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from .config import Config
-from .remote_client import RemoteClient
+from .http_backend import HTTPBackend
 from .cache import MetadataCache
 from .fuse_handler import RemoteFS
 
@@ -30,13 +30,13 @@ def cmd_mount(args):
     # Create mount point
     config.mount_point.mkdir(parents=True, exist_ok=True)
 
-    # Create client and cache
-    client = RemoteClient(config.server_url, config.token)
+    # Create backend and cache
+    backend = HTTPBackend(base_url=config.server_url, token=config.token)
     cache = MetadataCache(ttl=config.cache_ttl)
 
     # Mount
     print(f"Mounting RemoteFS at {config.mount_point}")
-    fs = RemoteFS(client=client, cache=cache, root=str(config.mount_point))
+    fs = RemoteFS(backend=backend, cache=cache, root=str(config.mount_point))
     fs.main()
 
 
@@ -66,9 +66,9 @@ def cmd_status(args):
         print("Not configured")
         sys.exit(1)
 
-    client = RemoteClient(config.server_url, config.token)
+    backend = HTTPBackend(base_url=config.server_url, token=config.token)
     try:
-        client.exists("/")
+        backend.file_exists("/")
         print(f"Connected to {config.server_url}")
         print(f"Mount point: {config.mount_point}")
         print(f"Cache TTL: {config.cache_ttl}s")

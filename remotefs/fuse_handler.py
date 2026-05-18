@@ -5,17 +5,43 @@ import stat
 from typing import Dict, Any, List, Optional, Tuple
 from fuse import FUSE  # type: ignore
 
-from .remote_client import RemoteClient, RemoteError
+from .backend import RemoteBackend, BackendError, FileNotFoundError as BackendFileNotFoundError
 from .cache import MetadataCache
+from .http_backend import HTTPBackend
 
 
 class RemoteFS(FUSE):
-    """FUSE filesystem for remote execution."""
+    """FUSE filesystem for remote execution.
 
-    def __init__(self, client: RemoteClient, cache: MetadataCache, *args, **kwargs):
+    This class implements a FUSE filesystem that forwards all operations
+    to a backend implementation.
+
+    Args:
+        backend: RemoteBackend instance (or HTTPBackend for backward compatibility)
+        cache: MetadataCache instance for caching
+        *args, **kwargs: Passed to FUSE constructor
+    """
+
+    def __init__(
+        self,
+        backend: Optional[RemoteBackend] = None,
+        cache: Optional[MetadataCache] = None,
+        client=None,  # Deprecated: use backend instead
+        *args,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.client = client
-        self.cache = cache
+
+        # Backward compatibility: accept 'client' parameter
+        if backend is None and client is not None:
+            # Wrap old RemoteClient in HTTPBackend adapter
+            self._client = client
+            self.backend = None
+        else:
+            self.backend = backend
+            self._client = None
+
+        self.cache = cache or MetadataCache()
         self._file_handles: Dict[int, Tuple[str, str]] = {}  # fd -> (path, mode)
         self._next_fd = 100
 
@@ -33,19 +59,26 @@ class RemoteFS(FUSE):
             return self._make_cmd_attr(path)
 
         # Query remote - try to list as directory first, then check as file
-        # This avoids misclassifying directories as files
         try:
-            remote_entries = self.client.list_dir(path)
+            if self.backend:
+                entries = self.backend.list_dir(path)
+            else:
+                # Backward compatibility with old client
+                entries = self._client.list_dir(path)
             # If list_dir succeeds, it's a directory
             attr = self._make_dir_attr()
-        except RemoteError:
+        except (BackendError, Exception):
             # Not a directory, try as file
             try:
-                if self.client.exists(path):
+                if self.backend:
+                    exists = self.backend.file_exists(path)
+                else:
+                    exists = self._client.exists(path)
+                if exists:
                     attr = {"type": "file", "size": 0, "mode": 0o644}
                 else:
                     raise FileNotFoundError(path)
-            except RemoteError:
+            except (BackendError, Exception):
                 raise FileNotFoundError(path)
 
         self.cache.set(f"attr:{path}", attr)
@@ -90,10 +123,16 @@ class RemoteFS(FUSE):
 
         # Query remote for real directories
         try:
-            remote_entries = self.client.list_dir(path)
-            for entry in remote_entries:
-                entries.append(entry["name"])
-        except RemoteError:
+            if self.backend:
+                remote_entries = self.backend.list_dir(path)
+                for entry in remote_entries:
+                    entries.append(entry.name)
+            else:
+                # Backward compatibility
+                remote_entries = self._client.list_dir(path)
+                for entry in remote_entries:
+                    entries.append(entry["name"])
+        except (BackendError, Exception):
             pass
 
         self.cache.set(f"readdir:{path}", entries)
@@ -114,10 +153,13 @@ class RemoteFS(FUSE):
             return cached[offset : offset + size]
 
         try:
-            content = self.client.read_file(path)
+            if self.backend:
+                content = self.backend.read_file(path)
+            else:
+                content = self._client.read_file(path)
             self.cache.set(f"content:{path}", content, ttl=1)  # Short TTL for content
             return content[offset : offset + size]
-        except RemoteError as e:
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to read file: {e}")
 
     def write(self, path: str, data: bytes, offset: int, fd: int) -> int:
@@ -128,8 +170,11 @@ class RemoteFS(FUSE):
         and write at the specified offset.
         """
         try:
-            self.client.write_file(path, data)
-        except RemoteError as e:
+            if self.backend:
+                self.backend.write_file(path, data)
+            else:
+                self._client.write_file(path, data)
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to write file: {e}")
 
         # Invalidate cache
@@ -142,8 +187,11 @@ class RemoteFS(FUSE):
     def create(self, path: str, mode: int) -> int:
         """Create a new file."""
         try:
-            self.client.write_file(path, b"")
-        except RemoteError as e:
+            if self.backend:
+                self.backend.write_file(path, b"")
+            else:
+                self._client.write_file(path, b"")
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to create file: {e}")
 
         self.cache.delete(f"attr:{path}")
@@ -161,8 +209,11 @@ class RemoteFS(FUSE):
     def mkdir(self, path: str, mode: int) -> None:
         """Create a directory."""
         try:
-            self.client.create_dir(path)
-        except RemoteError as e:
+            if self.backend:
+                self.backend.create_dir(path)
+            else:
+                self._client.create_dir(path)
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to create directory: {e}")
 
         self.cache.delete(f"attr:{path}")
@@ -171,8 +222,11 @@ class RemoteFS(FUSE):
     def rmdir(self, path: str) -> None:
         """Remove a directory."""
         try:
-            self.client.delete_dir(path)
-        except RemoteError as e:
+            if self.backend:
+                self.backend.delete_dir(path)
+            else:
+                self._client.delete_dir(path)
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to remove directory: {e}")
 
         self.cache.delete(f"attr:{path}")
@@ -181,8 +235,11 @@ class RemoteFS(FUSE):
     def unlink(self, path: str) -> None:
         """Delete a file."""
         try:
-            self.client.delete_file(path)
-        except RemoteError as e:
+            if self.backend:
+                self.backend.delete_file(path)
+            else:
+                self._client.delete_file(path)
+        except (BackendError, Exception) as e:
             raise OSError(f"Failed to delete file: {e}")
 
         self.cache.delete(f"content:{path}")
