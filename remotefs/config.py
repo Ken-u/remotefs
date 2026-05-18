@@ -11,16 +11,27 @@ class Config:
 
     DEFAULT_TTL = 5  # seconds
     DEFAULT_MOUNT_POINT = "~/remotefs/workspace"
+    DEFAULT_RK_SEARCH_MAX_DEPTH = 1
 
     def __init__(
         self,
         server_url: Optional[str] = None,
         token: Optional[str] = None,
+        backend_type: str = "http",
+        rk_search_max_depth: int = DEFAULT_RK_SEARCH_MAX_DEPTH,
+        rk_codesearch_project: Optional[str] = None,
+        rk_codesearch_type: Optional[str] = None,
+        rk_codesearch_search_field: str = "smart",
         cache_ttl: int = DEFAULT_TTL,
         mount_point: Optional[str] = None,
     ):
         self.server_url = server_url or ""
         self.token = token or ""
+        self.backend_type = backend_type
+        self.rk_search_max_depth = rk_search_max_depth
+        self.rk_codesearch_project = rk_codesearch_project or ""
+        self.rk_codesearch_type = rk_codesearch_type or ""
+        self.rk_codesearch_search_field = rk_codesearch_search_field
         self.cache_ttl = cache_ttl
         self.mount_point = Path(mount_point or self.DEFAULT_MOUNT_POINT).expanduser()
 
@@ -30,6 +41,13 @@ class Config:
         return cls(
             server_url=os.environ.get("REMOTEFS_SERVER"),
             token=os.environ.get("REMOTEFS_TOKEN"),
+            backend_type=os.environ.get("REMOTEFS_BACKEND", "http"),
+            rk_search_max_depth=int(
+                os.environ.get("REMOTEFS_RK_SEARCH_DEPTH", cls.DEFAULT_RK_SEARCH_MAX_DEPTH)
+            ),
+            rk_codesearch_project=os.environ.get("REMOTEFS_RK_CODESEARCH_PROJECT"),
+            rk_codesearch_type=os.environ.get("REMOTEFS_RK_CODESEARCH_TYPE"),
+            rk_codesearch_search_field=os.environ.get("REMOTEFS_RK_CODESEARCH_FIELD", "smart"),
         )
 
     @classmethod
@@ -43,6 +61,11 @@ class Config:
         return cls(
             server_url=server.get("url"),
             token=server.get("token"),
+            backend_type=server.get("backend", "http"),
+            rk_search_max_depth=server.get("rk_search_max_depth", cls.DEFAULT_RK_SEARCH_MAX_DEPTH),
+            rk_codesearch_project=server.get("rk_codesearch_project"),
+            rk_codesearch_type=server.get("rk_codesearch_type"),
+            rk_codesearch_search_field=server.get("rk_codesearch_search_field", "smart"),
             cache_ttl=cache.get("ttl", cls.DEFAULT_TTL),
             mount_point=mount.get("path"),
         )

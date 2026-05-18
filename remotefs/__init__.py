@@ -36,9 +36,7 @@ from .backend import (
 
 # Built-in HTTP backend
 from .http_backend import HTTPBackend
-
-# FUSE filesystem
-from .fuse_handler import RemoteFS
+from .remote_run_backend import RemoteRunBackend
 
 # Supporting modules
 from .cache import MetadataCache
@@ -55,9 +53,18 @@ __all__ = [
     "PermissionDeniedError",
     # Built-in backends
     "HTTPBackend",
+    "RemoteRunBackend",
     # FUSE filesystem
     "RemoteFS",
     # Supporting
     "MetadataCache",
     "Config",
 ]
+
+
+def __getattr__(name):
+    """Lazy-load FUSE-dependent exports."""
+    if name == "RemoteFS":
+        from .fuse_handler import RemoteFS
+        return RemoteFS
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

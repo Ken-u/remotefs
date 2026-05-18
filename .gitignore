@@ -36,3 +36,7 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+
+# Remote Run Agent (auto-generated)
+.remote-run/
+rr.py

@@ -21,3 +21,7 @@ dev = [
 
 [project.scripts]
 remotefs = "remotefs.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["remotefs*"]
+exclude = ["tests*"]

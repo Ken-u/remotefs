@@ -11,6 +11,24 @@
 
 ## 安装
 
+推荐使用 `uv` + 本地虚拟环境：
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+如果只需要运行时依赖：
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+```
+
+如果你仍然使用普通 `pip`，可以退回到：
+
 ```bash
 pip install -e .
 ```
@@ -27,8 +45,13 @@ pip install -e .
 
 ```yaml
 server:
+  backend: "http"  # 或 "remote-run"
   url: "http://your-server:8080"
   token: "your-token"
+  rk_search_max_depth: 1
+  rk_codesearch_project: ""
+  rk_codesearch_type: ""
+  rk_codesearch_search_field: "smart"
 cache:
   ttl: 5
 mount:
@@ -40,6 +63,11 @@ mount:
 ```bash
 export REMOTEFS_SERVER=http://your-server:8080
 export REMOTEFS_TOKEN=your-token
+export REMOTEFS_BACKEND=http
+export REMOTEFS_RK_SEARCH_DEPTH=1
+export REMOTEFS_RK_CODESEARCH_PROJECT=
+export REMOTEFS_RK_CODESEARCH_TYPE=
+export REMOTEFS_RK_CODESEARCH_FIELD=smart
 ```
 
 ## 使用方法
@@ -50,6 +78,8 @@ export REMOTEFS_TOKEN=your-token
 remotefs mount
 # 或
 remotefs mount --server http://server:8080 --token TOKEN /path/to/mount
+# 或使用 Remote Run 后端
+remotefs mount --backend remote-run --server http://server:8522 --token TOKEN /path/to/mount
 ```
 
 ### 卸载
@@ -69,6 +99,24 @@ remotefs status
 ```bash
 remotefs config
 ```
+
+## 内置后端
+
+- `http`: 直接调用 REST 文件 API（`/file`、`/dir`、`/exec`、`/search`）
+- `remote-run`: 通过 Remote Run Agent API 和 allowlisted 命令工作，例如 `Read`、`Write`、`list_dir`、`path_exists`、`make_dir`、`delete_path`
+
+`remote-run` 更适合代码工作区。读取通过 `download_path` 是二进制安全的；写入当前依赖 Remote Run 的 `Write` 命令，因此只保证 UTF-8 文本写入。
+
+对 `remote-run`，`search()` 采用混合策略：
+- 路径深度 `<= rk_search_max_depth`：先走 `rk_codesearch`，无结果再回退 `Grep`
+- 更深路径：先走 `Grep`，无结果再补 `rk_codesearch`
+
+如果你要在代码里强制只走索引模糊搜索，可以直接调用 `RemoteRunBackend.search_index(pattern, path="/")`。
+
+可选的 `rk_codesearch` 调优项：
+- `rk_codesearch_project`: 限定索引搜索的项目范围
+- `rk_codesearch_type`: 限定文件类型，例如 `java`、`python`、`rust`
+- `rk_codesearch_search_field`: 选择索引搜索模式，例如 `smart`、`full`、`path`、`def`、`symbol`
 
 ## 远程 API
 
@@ -117,7 +165,9 @@ remotefs config
 ## 开发
 
 ```bash
-pip install -e ".[dev]"
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
 pytest tests/
 ```
 

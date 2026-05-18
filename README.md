@@ -11,6 +11,24 @@ FUSE-based remote filesystem for AI agents.
 
 ## Installation
 
+Recommended: use `uv` with a local virtual environment.
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+If you only need runtime dependencies:
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+```
+
+Fallback for plain `pip` users:
+
 ```bash
 pip install -e .
 ```
@@ -27,8 +45,13 @@ Create `~/.config/remotefs/config.yaml`:
 
 ```yaml
 server:
+  backend: "http"  # or "remote-run"
   url: "http://your-server:8080"
   token: "your-token"
+  rk_search_max_depth: 1
+  rk_codesearch_project: ""
+  rk_codesearch_type: ""
+  rk_codesearch_search_field: "smart"
 cache:
   ttl: 5
 mount:
@@ -40,6 +63,11 @@ Or use environment variables:
 ```bash
 export REMOTEFS_SERVER=http://your-server:8080
 export REMOTEFS_TOKEN=your-token
+export REMOTEFS_BACKEND=http
+export REMOTEFS_RK_SEARCH_DEPTH=1
+export REMOTEFS_RK_CODESEARCH_PROJECT=
+export REMOTEFS_RK_CODESEARCH_TYPE=
+export REMOTEFS_RK_CODESEARCH_FIELD=smart
 ```
 
 ## Usage
@@ -50,6 +78,8 @@ export REMOTEFS_TOKEN=your-token
 remotefs mount
 # or
 remotefs mount --server http://server:8080 --token TOKEN /path/to/mount
+# or use Remote Run backend
+remotefs mount --backend remote-run --server http://server:8522 --token TOKEN /path/to/mount
 ```
 
 ### Unmount
@@ -69,6 +99,24 @@ remotefs status
 ```bash
 remotefs config
 ```
+
+## Built-in Backends
+
+- `http`: direct REST file API (`/file`, `/dir`, `/exec`, `/search`)
+- `remote-run`: Remote Run Agent API using allowlisted commands such as `Read`, `Write`, `list_dir`, `path_exists`, `make_dir`, and `delete_path`
+
+`remote-run` is oriented toward source workspaces. Reads are binary-safe through `download_path`, but writes currently depend on the Remote Run `Write` command and therefore support UTF-8 text payloads only.
+
+For `remote-run`, `search()` uses a hybrid strategy:
+- path depth `<= rk_search_max_depth`: try `rk_codesearch` first, then fall back to `Grep`
+- deeper paths: try `Grep` first, then fall back to `rk_codesearch`
+
+If you need to force index-based fuzzy search from code, use `RemoteRunBackend.search_index(pattern, path="/")`.
+
+Optional `rk_codesearch` tuning:
+- `rk_codesearch_project`: restrict search to a specific indexed project
+- `rk_codesearch_type`: restrict indexed results to a file type such as `java`, `python`, or `rust`
+- `rk_codesearch_search_field`: choose the index mode, for example `smart`, `full`, `path`, `def`, or `symbol`
 
 ## Remote API
 
@@ -117,7 +165,9 @@ Your remote server must implement these endpoints:
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
 pytest tests/
 ```
 

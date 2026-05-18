@@ -10,7 +10,7 @@ from .cache import MetadataCache
 from .http_backend import HTTPBackend
 
 
-class RemoteFS(FUSE):
+class RemoteFS:
     """FUSE filesystem for remote execution.
 
     This class implements a FUSE filesystem that forwards all operations
@@ -27,11 +27,8 @@ class RemoteFS(FUSE):
         backend: Optional[RemoteBackend] = None,
         cache: Optional[MetadataCache] = None,
         client=None,  # Deprecated: use backend instead
-        *args,
-        **kwargs
+        root: str = "/",
     ):
-        super().__init__(*args, **kwargs)
-
         # Backward compatibility: accept 'client' parameter
         if backend is None and client is not None:
             # Wrap old RemoteClient in HTTPBackend adapter
@@ -41,9 +38,14 @@ class RemoteFS(FUSE):
             self.backend = backend
             self._client = None
 
+        self.root = root
         self.cache = cache or MetadataCache()
         self._file_handles: Dict[int, Tuple[str, str]] = {}  # fd -> (path, mode)
         self._next_fd = 100
+
+    def main(self, *args, **kwargs):
+        """Mount this filesystem via fusepy."""
+        return FUSE(self, self.root, *args, **kwargs)
 
     def _get_attr(self, path: str) -> Dict[str, Any]:
         """Get file/directory attributes."""

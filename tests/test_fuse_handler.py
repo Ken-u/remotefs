@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch, PropertyMock
+import remotefs.fuse_handler as fuse_handler_module
 
 from remotefs.fuse_handler import RemoteFS
 from remotefs.remote_client import RemoteClient, RemoteError
@@ -101,3 +102,16 @@ def test_unlink(fs, mock_client):
     """Test deleting a file."""
     fs.unlink("/test/file.txt")
     mock_client.delete_file.assert_called_once_with("/test/file.txt")
+
+
+def test_main_mounts_with_self_as_operations(mock_client, cache):
+    """main() should invoke fusepy with the filesystem object and mount point."""
+    with patch.object(fuse_handler_module, "FUSE") as mock_fuse:
+        fs = RemoteFS(client=mock_client, cache=cache, root="/tmp/remotefs")
+
+        fs.main()
+
+    mock_fuse.assert_called_once()
+    args, kwargs = mock_fuse.call_args
+    assert args[0] is fs
+    assert args[1] == "/tmp/remotefs"

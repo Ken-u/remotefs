@@ -1,0 +1,28 @@
+server:
+  # Backend type: "http" or "remote-run"
+  backend: remote-run
+
+  # Remote server base URL
+  url: http://127.0.0.1:8522
+
+  # Authentication token
+  token: your-token-here
+
+  # For remote-run only:
+  # Paths with depth <= rk_search_max_depth search via rk_codesearch first.
+  # Deeper paths search via Grep first.
+  rk_search_max_depth: 1
+
+  # Optional rk_codesearch tuning for remote-run only.
+  # Leave empty to use server defaults.
+  rk_codesearch_project: ""
+  rk_codesearch_type: ""
+  rk_codesearch_search_field: smart
+
+cache:
+  # Metadata cache TTL in seconds
+  ttl: 5
+
+mount:
+  # Local mount point
+  path: ~/remotefs/workspace
